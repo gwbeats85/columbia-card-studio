@@ -1,0 +1,64 @@
+async (page) => {
+  await page.goto('http://127.0.0.1:5199/?archive');
+  await page.getByAltText('Front image original artwork').waitFor();
+  const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+  const card=()=>page.getByRole('button',{name:'Card',exact:true}).click();
+  const scene=()=>page.getByRole('button',{name:'Scene',exact:true}).click();
+  const exportTab=()=>page.getByRole('button',{name:'Export',exact:true}).click();
+  await card();
+  // Invalid types and corrupted data must fail without discarding the existing image.
+  await page.getByLabel('Upload front image',{exact:true}).setInputFiles({name:'bad.heic',mimeType:'image/heic',buffer:Buffer.from('bad')});
+  await page.getByRole('alert').filter({hasText:'Choose a JPEG'}).waitFor();
+  assert(await page.getByAltText('Front image original artwork').isVisible(),'Lost existing asset after rejection');
+  await page.getByRole('button',{name:'Dismiss notification'}).click();
+  await page.getByLabel('Upload front image',{exact:true}).setInputFiles({name:'corrupt.jpg',mimeType:'image/jpeg',buffer:Buffer.from('bad')});
+  await page.getByRole('alert').filter({hasText:'could not be decoded'}).waitFor();
+  await page.getByRole('button',{name:'Dismiss notification'}).click();
+  // A real file upload follows the same path used for shop photographs.
+  await page.getByLabel('Upload front image',{exact:true}).setInputFiles('/Users/m5/Workspaces/apps/prototypes/pull-studio/public/samples/ty-cobb-front.jpg');
+  await page.getByText('ty-cobb-front.jpg',{exact:true}).waitFor();
+  assert(await page.getByRole('textbox',{name:'Player or title'}).inputValue()==='','Sample title leaked onto next card');
+  await page.getByLabel('Upload back image',{exact:true}).setInputFiles('/Users/m5/Workspaces/apps/prototypes/pull-studio/public/samples/ty-cobb-back.jpg');
+  await page.getByText('ty-cobb-back.jpg',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Crop & alignment'}).click();
+  await page.getByRole('button',{name:'Front',exact:true}).click();
+  await page.getByRole('combobox',{name:'Card proportions',exact:true}).selectOption('standard');
+  await page.getByRole('button',{name:'Fill card',exact:true}).click();
+  await page.getByRole('slider',{name:'Crop zoom',exact:true}).fill('1.2');
+  await page.getByRole('slider',{name:'Horizontal alignment',exact:true}).fill('0.3');
+  const frontCrop=await page.locator('.crop-preview').evaluate(c=>c.toDataURL());
+  await page.getByRole('button',{name:'Back',exact:true}).click();
+  assert(await page.getByRole('slider',{name:'Crop zoom',exact:true}).inputValue()==='1','Front crop leaked to back');
+  await page.getByRole('button',{name:'Rotate 90°',exact:true}).click();
+  await page.getByRole('button',{name:'Front',exact:true}).click();
+  assert(await page.getByRole('slider',{name:'Crop zoom',exact:true}).inputValue()==='1.2','Front crop did not persist');
+  assert(await page.locator('.crop-preview').evaluate(c=>c.toDataURL())===frontCrop,'Out-of-order crop changed image');
+  await page.getByRole('button',{name:'Reset crop',exact:true}).click();
+  await page.getByRole('button',{name:'Crop & alignment'}).click();
+  await page.getByRole('textbox',{name:'Player or title'}).fill('TY COBB');
+  await page.getByRole('textbox',{name:'Set or card details'}).fill('1911 · TURKEY RED CABINETS');
+  await page.getByRole('textbox',{name:'Shop name'}).fill('THE ARCHIVE');
+  await scene();
+  await page.getByRole('checkbox',{name:/Include a full card turn/}).check();
+  await page.getByRole('button',{name:'silver studio light'}).click();
+  await page.getByRole('combobox',{name:'Surface finish',exact:true}).selectOption('gloss');
+  await page.getByRole('slider',{name:'Playback speed',exact:true}).fill('1.25');
+  await page.getByRole('button',{name:'Save scene',exact:true}).click();
+  await page.getByRole('slider',{name:'Playback speed',exact:true}).fill('1');
+  await page.getByRole('button',{name:'Restore scene',exact:true}).click();
+  assert(await page.getByRole('slider',{name:'Playback speed',exact:true}).inputValue()==='1.25','Settings were not restored');
+  await page.getByRole('button',{name:'Dismiss notification'}).click();
+  // Unsupported encoder is tested in a separate disposable tab.
+  const unsupported=await page.context().newPage();
+  await unsupported.addInitScript(()=>Object.defineProperty(window,'VideoEncoder',{value:undefined,configurable:true}));
+  await unsupported.goto('http://127.0.0.1:5199/?archive');
+  await unsupported.getByRole('button',{name:'Export',exact:true}).click();
+  await unsupported.getByText('MP4 export unavailable. Open in current Chrome or Edge.',{exact:true}).waitFor();
+  assert(await unsupported.locator('.export-button').isDisabled(),'Unsupported export was enabled');
+  await unsupported.close();
+  await exportTab();
+  await page.getByRole('combobox',{name:'Frame rate',exact:true}).selectOption('24');
+  assert(await page.getByText('6.4 seconds · H.264',{exact:true}).isVisible(),'Speed did not change duration');
+  await page.screenshot({path:'/Users/m5/Workspaces/apps/prototypes/pull-studio/output/playwright/workflow-smoke.png'});
+  return {upload:'JPEG accepted; invalid HEIC and corrupt JPEG rejected',crop:'Independent front/back; rotated back; uniform fit and fill controls',scene:'Flip, silver, gloss, speed, save/restore',export:'24 fps configurable; unsupported H.264 disabled'};
+}

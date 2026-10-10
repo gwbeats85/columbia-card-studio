@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.DS_Store
+output/playwright/
+
+.playwright-cli/
+
+# Private user-supplied test photos; never commit or publish these fixtures.
+public/local-card/
+references/local-card/
+
+# Local verification media and research captures
+proofs/
+references/*.png
+
+# Credentials and machine-local agent/runtime state
+.env
+.env.*
+!.env.example
+.codex/
+.claude/
+.gemini/
+.cache/
+coverage/
+*.log
+*.pem
+*.key
