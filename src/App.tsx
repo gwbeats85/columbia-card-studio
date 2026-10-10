@@ -4,7 +4,8 @@ import { ArrowDownToLine, ArrowUpRight, Check, CheckCircle2, ChevronRight, Clapp
 import { Studio, makeArtwork } from './studio';
 import { cardAspect, defaultSettings, durationOf, freshCrop, loadAsset, releaseAsset, restoreScene, sampleTimeline, uploadAsset } from './model';
 import type { Asset, Crop, RenderInput, Settings } from './model';
-import { checkExport, exportMp4 } from './export';
+import { checkExport, exportMp4, exportPng } from './export';
+import { exportDimensions, type ExportFormat } from './export-dimensions';
 import './styles.css';
 
 function Range({label,value,min,max,step=1,display,onChange}: {label:string;value:number;min:number;max:number;step?:number;display?:string;onChange:(n:number)=>void}) {
@@ -25,7 +26,10 @@ function AssetSlot({label,asset,onFile,onRemove,optional=false}: {label:string;a
     {asset&&<button aria-label={`Remove ${label.toLowerCase()}`} className="asset-remove icon-button" onClick={onRemove}><Trash2 size={13}/></button>}
   </div>;
 }
-export default function App() {
+export default function App({onSendToPosts}:{onSendToPosts?:(url:string,name:string)=>void}) {
+  const [format,setFormat]=useState<ExportFormat>('vertical');
+  const [stillBusy,setStillBusy]=useState(false);
+  const dimensions=exportDimensions(format);
   const [panel,setPanel]=useState<'card'|'brand'|'scene'|'export'>('card');
   const [filmView,setFilmView]=useState(false);
   const [front,setFront]=useState<Asset|null>(null),[back,setBack]=useState<Asset|null>(null),[logo,setLogo]=useState<Asset|null>(null);
@@ -36,13 +40,13 @@ export default function App() {
   const [face,setFace]=useState<'front'|'back'>('front'),[cropOpen,setCropOpen]=useState(false);
   const [time,setTime]=useState(7),[playing,setPlaying]=useState(false),[ready,setReady]=useState(false);
   const [fps,setFps]=useState<24|30>(30),[bitrate,setBitrate]=useState(12_000_000),[supported,setSupported]=useState<boolean|null>(null);
-  const [progress,setProgress]=useState<number|null>(null),[result,setResult]=useState<{url:string;size:number;duration:number}|null>(null),[showVideo,setShowVideo]=useState(false);
+  const [progress,setProgress]=useState<number|null>(null),[result,setResult]=useState<{url:string;size:number;duration:number;width:number;height:number}|null>(null),[showVideo,setShowVideo]=useState(false);
   const stageRef=useRef<HTMLDivElement>(null);
   const canvasRef=useRef<HTMLCanvasElement>(null),studio=useRef<Studio|null>(null),controller=useRef<AbortController|null>(null);
   const cropCanvas=useRef<HTMLCanvasElement>(null),logoUpload=useRef<HTMLInputElement>(null),backgroundUpload=useRef<HTMLInputElement>(null);
   const assetRefs=useRef({front,back,logo,backgroundImage});assetRefs.current={front,back,logo,backgroundImage};
   const resultRef=useRef(result);resultRef.current=result;
-  const busy=progress!==null, duration=durationOf(settings);
+  const busy=progress!==null||stillBusy, duration=durationOf(settings);
   const input=useMemo<RenderInput|null>(()=>front?{front,back,logo,backgroundImage,frontCrop,backCrop,settings}:null,[front,back,logo,backgroundImage,frontCrop,backCrop,settings]);
   const viewState=useRef({input,time});viewState.current={input,time};
   const selectedCrop=face==='front'?frontCrop:backCrop, selectedAsset=face==='front'?front:back;
@@ -82,9 +86,9 @@ export default function App() {
   },[input,time,duration,ready,filmView]);
   useEffect(()=>{
     const element=stageRef.current;if(!element||!studio.current)return;
-    const resize=()=>{const h=Math.round(element.clientHeight);const w=filmView?Math.round(h*9/16):Math.round(element.clientWidth);studio.current!.setSize(w,h);studio.current!.workspaceView=!filmView;const current=viewState.current;if(current.input){studio.current!.setInput(current.input);studio.current!.render(current.time);}};
+    const resize=()=>{const h=Math.round(Math.min(element.clientHeight,filmView?element.clientWidth*dimensions.height/dimensions.width:element.clientHeight));const w=filmView?Math.round(h*dimensions.width/dimensions.height):Math.round(element.clientWidth);if(!w||!h)return;studio.current!.setSize(w,h);studio.current!.workspaceView=!filmView;const current=viewState.current;if(current.input){studio.current!.setInput(current.input);studio.current!.render(current.time);}};
     const observer=new ResizeObserver(resize);observer.observe(element);resize();return()=>observer.disconnect();
-  },[ready,filmView]);
+  },[ready,filmView,dimensions.width,dimensions.height]);
   useEffect(()=>{
     if(!playing||busy)return;
     let last=performance.now(),id=0;
@@ -92,7 +96,7 @@ export default function App() {
     id=requestAnimationFrame(tick);return()=>cancelAnimationFrame(id);
   },[playing,busy,duration,settings.motion]);
   useEffect(()=>{setTime(t=>Math.min(t,duration));},[duration]);
-  useEffect(()=>{let current=true;setSupported(null);checkExport({fps,bitrate}).then(value=>{if(current)setSupported(value);}).catch(()=>{if(current)setSupported(false);});return()=>{current=false};},[fps,bitrate]);
+  useEffect(()=>{let current=true;setSupported(null);checkExport({fps,bitrate,format}).then(value=>{if(current)setSupported(value);}).catch(()=>{if(current)setSupported(false);});return()=>{current=false};},[fps,bitrate,format]);
   useEffect(()=>{
     if(!cropOpen||!cropCanvas.current||!input||!selectedAsset)return;
     const art=makeArtwork(selectedAsset,selectedCrop,cardAspect(input)),c=cropCanvas.current;
@@ -117,11 +121,21 @@ export default function App() {
     if(!input||busy)return;
     setPlaying(false);setError('');setMessage('');setProgress(0);const abort=new AbortController();controller.current=abort;
     try{
-      const blob=await exportMp4(input,{fps,bitrate},setProgress,abort.signal);
+      const blob=await exportMp4(input,{fps,bitrate,format},setProgress,abort.signal);
       if(result)URL.revokeObjectURL(result.url);
-      setResult({url:URL.createObjectURL(blob),size:blob.size,duration});setMessage('Your film is ready. Preview it or download the MP4.');
+      setResult({url:URL.createObjectURL(blob),size:blob.size,duration,...dimensions});setMessage('Your film is ready. Preview it or download the MP4.');
     }catch(e){if(abort.signal.aborted)setMessage('Render cancelled. Your scene is unchanged.');else setError(e instanceof Error?e.message:String(e));}
     finally{setProgress(null);controller.current=null;}
+  }
+  async function renderStill(destination:'download'|'posts'|'cutout') {
+    if(!input||busy)return;setStillBusy(true);setPlaying(false);setError('');
+    try {
+      const blob=await exportPng(input,time,format,destination!=='download');
+      if(destination==='posts'&&onSendToPosts){
+        const reader=new FileReader();const url=await new Promise<string>((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Could not transfer the still.'));reader.readAsDataURL(blob);});
+        onSendToPosts(url,settings.title||'Card still');
+      } else {const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`columbia-${destination==='cutout'?'card-cutout':format}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);setMessage('PNG downloaded from the current film frame.');}
+    } catch(e){setError(e instanceof Error?e.message:String(e));}finally{setStillBusy(false);}
   }
   function saveSettings(){try{localStorage.setItem('pull-studio-settings-v1',JSON.stringify(settings));setMessage('Scene settings saved in this browser. Images stay in this session.');}catch{setError('This browser cannot save settings. The current scene still works.');}}
   function restoreSettings(){
@@ -180,9 +194,9 @@ export default function App() {
           {logo&&<p className="fine-print">{logo.name} · replaces the shop name in the film.</p>}
         </Section>
       </fieldset><div className="local-note"><ShieldCheck size={15}/><span>Originals stay untouched.<br/>No uploads. No generated artwork.</span></div></aside>
-      <section className="preview-panel"><div className="stage-toolbar"><span><span className="status-dot"/>{loading?'LOADING ARTWORK':busy?'RENDERING YOUR FILM':ready?'LIVE PREVIEW':'STARTING STUDIO'}</span><span>9:16 <i/>1080 × 1920</span></div>
+      <section className="preview-panel"><div className="stage-toolbar"><span><span className="status-dot"/>{loading?'LOADING ARTWORK':busy?'RENDERING YOUR FILM':ready?'LIVE PREVIEW':'STARTING STUDIO'}</span><span>{format} <i/>{dimensions.width} × {dimensions.height}</span></div>
         <div className="stage" ref={stageRef}><div className="stage-cross tl"/><div className="stage-cross br"/><span className="stage-label">PULL STUDIO / HERO REVEAL</span>
-          <div className="portrait" style={filmView?undefined:{width:'100%',aspectRatio:'auto'}}><canvas ref={canvasRef} aria-label={filmView?'Cinematic card preview':'Interactive 3D card'} tabIndex={filmView?-1:0} aria-describedby={filmView?undefined:'inspection-help'} onKeyDown={e=>{
+          <div className="portrait" style={filmView?{aspectRatio:`${dimensions.width}/${dimensions.height}`,height:'auto',maxHeight:'100%'}:{width:'100%',aspectRatio:'auto'}}><canvas ref={canvasRef} aria-label={filmView?'Cinematic card preview':'Interactive 3D card'} tabIndex={filmView?-1:0} aria-describedby={filmView?undefined:'inspection-help'} onKeyDown={e=>{
             if(filmView)return;
             const angles:Record<string,[number,number]>={ArrowLeft:[0.15,0],ArrowRight:[-0.15,0],ArrowUp:[0,0.15],ArrowDown:[0,-0.15]};
             if(angles[e.key]){e.preventDefault();studio.current?.orbitInspection(...angles[e.key]);}
@@ -196,7 +210,7 @@ export default function App() {
           <button className="icon-button" aria-label="Zoom out" onClick={()=>studio.current?.zoomInspection(1.15)}><Minus size={15}/></button><button className="icon-button" aria-label="Zoom in" onClick={()=>studio.current?.zoomInspection(1/1.15)}><Plus size={15}/></button><button className="icon-button" aria-label="Reset 3D view" onClick={()=>studio.current?.inspectView('reset')}><RotateCcw size={15}/></button></div>
         </div>}
         <div className="storyboard">{[['Emergence',0,1.5],['Reveal',1.5,3.5],['Hero',3.5,6],['Signature',6,8]].map(([name,start,end],index)=><button key={name} disabled={busy||!front} className={phase===name?'active':''} onClick={()=>{setPlaying(false);setTime(((+start + +end)/2)/settings.speed)}}><span>0{index+1}<i/></span><strong>{name}</strong><small>{(+start/settings.speed).toFixed(1)}—{(+end/settings.speed).toFixed(1)}s</small></button>)}</div>
-        <div className="preview-footer"><span><Clapperboard size={14}/>Your artwork stays on this device.</span><span>1080 × 1920 · MP4</span></div>
+        <div className="preview-footer"><span><Clapperboard size={14}/>Your artwork stays on this device.</span><span>{dimensions.width} × {dimensions.height} · MP4</span></div>
       </section>
       <aside className="brand-panel panel"><fieldset disabled={busy||loading}>
         <Section number="03" title="Columbia backgrounds"><p className="section-intro">Choose a look, then make it yours. Shown in Film preview.</p>
@@ -230,18 +244,18 @@ export default function App() {
           <Range label="Playback speed" min={0.75} max={1.25} step={0.05} value={settings.speed} display={`${settings.speed.toFixed(2)}×`} onChange={v=>update('speed',v)}/>
           {settings.motion==='reveal'&&<label className="checkbox-label"><input type="checkbox" checked={settings.flip} disabled={!back} onChange={e=>update('flip',e.target.checked)}/><span>Include a full card turn<small>{back?'Show both sides during the reveal.':'Add a reverse image to enable.'}</small></span></label>}
         </Section>
-        <Section number="04" title="The final cut"><div className="output-spec"><span>VERTICAL MP4<strong>1080 <i>×</i> 1920</strong></span><div className="vertical-icon"/></div>
+        <Section number="04" title="The final cut"><label className="field">Social format<select aria-label="Social format" value={format} onChange={e=>{setFormat(e.target.value as ExportFormat);setFilmView(true);}}><option value="portrait">Portrait feed · 1080 × 1350</option><option value="square">Square feed · 1080 × 1080</option><option value="vertical">Reels / Stories · 1080 × 1920</option></select></label><div className="output-spec"><span>{format.toUpperCase()} MP4<strong>{dimensions.width} <i>×</i> {dimensions.height}</strong></span><div className="vertical-icon"/></div>
           <div className="export-fields"><label className="field">Frame rate<select aria-label="Frame rate" value={fps} onChange={e=>setFps(+e.target.value as 24|30)}><option value={30}>30 fps</option><option value={24}>24 fps</option></select></label><label className="field">Quality<select aria-label="Export quality" value={bitrate} onChange={e=>setBitrate(+e.target.value)}><option value={12000000}>High · 12 Mbps</option><option value={18000000}>Max · 18 Mbps</option></select></label></div>
           <div className="export-meta"><span>{duration.toFixed(1)} seconds · H.264</span><span>Silent film</span></div>
         </Section>
       </fieldset>
-      <div className="export-action">{busy?<><div className="render-progress" role="status"><LoaderCircle size={15} className="spin"/><span>{progress!>=0.97?'Finalizing MP4':'Rendering your film'}</span><strong>{Math.round(progress!*100)}%</strong></div><progress value={progress!} max={1}/><button className="wide-button" onClick={()=>controller.current?.abort()}>Cancel render</button></>:<button className="export-button" disabled={!input||!ready||loading||supported!==true} onClick={renderVideo}><ArrowDownToLine size={17}/>Export film<ArrowUpRight size={16}/></button>}
+      <div className="export-action"><div className="still-actions"><button disabled={busy||!input||!ready} className="wide-button" onClick={()=>void renderStill('download')}>Download frame PNG</button><button disabled={busy||!input||!ready} className="wide-button" onClick={()=>void renderStill('cutout')}>Download transparent card</button><button disabled={busy||!input||!ready} className="wide-button" onClick={()=>void renderStill('posts')}>Use card still in Posts →</button><p className="fine-print">Uses the current film timeline frame. Transparent PNG removes the studio backdrop; your photograph stays intact.</p></div>{stillBusy?<p role="status">Preparing card still…</p>:progress!==null?<><div className="render-progress" role="status"><LoaderCircle size={15} className="spin"/><span>{progress!>=0.97?'Finalizing MP4':'Rendering your film'}</span><strong>{Math.round(progress!*100)}%</strong></div><progress value={progress!} max={1}/><button className="wide-button" onClick={()=>controller.current?.abort()}>Cancel render</button></>:<button className="export-button" disabled={!input||!ready||loading||supported!==true} onClick={renderVideo}><ArrowDownToLine size={17}/>Export film<ArrowUpRight size={16}/></button>}
         <p className={`export-status ${supported===false?'unsupported':''}`}>{supported===null?'Checking browser encoder…':supported?'H.264 encoder ready · rendered on your device':'MP4 export unavailable. Open in current Chrome or Edge.'}</p>
         {result&&<div className="result"><div><CheckCircle2 size={15}/><strong>Last export ready</strong><small>{(result.size/1_000_000).toFixed(1)} MB</small></div><div className="row"><button className="quiet-button" onClick={()=>setShowVideo(true)}><Play size={12}/>Watch film</button><a className="download-link" href={result.url} download="columbia-card-studio.mp4">Download MP4<ArrowDownToLine size={13}/></a></div></div>}
       </div></aside>
     </main>
     <div className="inspector-bottom"><span className="status-dot"/><span>{busy?`Rendering · ${Math.round(progress!*100)}%`:loading?'Loading image…':'Local studio'}</span><button onClick={()=>setPanel(panel==='export'?'card':'export')}>{panel==='export'?'Back to card':'Export film'}<ArrowUpRight size={13}/></button></div>
     <footer className="app-footer"><span>PULL STUDIO <span> / </span> MADE FOR THE MOMENT.</span><span><Sun size={12}/>Studio prototype<span>·</span> Desktop Chrome recommended</span></footer>
-    {showVideo&&result&&<div className="modal-backdrop" onClick={()=>setShowVideo(false)}><div className="video-modal" role="dialog" aria-modal="true" aria-label="Exported film" onClick={e=>e.stopPropagation()}><div><strong>Your final cut</strong><button autoFocus className="icon-button" aria-label="Close exported film" onClick={()=>setShowVideo(false)}><X size={20}/></button></div><video controls playsInline autoPlay src={result.url}/><p>1080 × 1920 · {result.duration.toFixed(2)} seconds · MP4</p></div></div>}
+    {showVideo&&result&&<div className="modal-backdrop" onClick={()=>setShowVideo(false)}><div className="video-modal" role="dialog" aria-modal="true" aria-label="Exported film" onClick={e=>e.stopPropagation()}><div><strong>Your final cut</strong><button autoFocus className="icon-button" aria-label="Close exported film" onClick={()=>setShowVideo(false)}><X size={20}/></button></div><video controls playsInline autoPlay src={result.url}/><p>{result.width} × {result.height} · {result.duration.toFixed(2)} seconds · MP4</p></div></div>}
   </div>;
 }

@@ -42,6 +42,7 @@ export function makeArtwork(asset: Asset | null, crop: Crop, aspect: number) {
 export class Studio {
   readonly canvas: HTMLCanvasElement;
   private inspecting = false;
+  transparentOutput = false;
   get workspaceView() { return this.inspecting; }
   set workspaceView(value: boolean) { this.inspecting=value; this.controls.enabled=value; }
   readonly renderer: THREE.WebGLRenderer;
@@ -159,7 +160,7 @@ export class Studio {
     for(const mesh of this.reflection.children) if(mesh instanceof THREE.Mesh) (mesh.material as THREE.MeshBasicMaterial).opacity=0.035*state.visibility;
     if(this.workspaceView){this.card.rotation.set(0,0,0);this.card.position.y=0;}
     else {this.card.rotation.set(state.pitch,state.yaw,state.roll);this.card.position.y=state.y;}
-    this.reflection.visible=!this.workspaceView;
+    this.reflection.visible=!this.workspaceView && !this.transparentOutput;
     this.reflection.rotation.copy(this.card.rotation); this.reflection.position.y=-4.12-state.y; this.reflection.scale.y=-1;
     this.camera.position.set(0,0.35,state.cameraZ * Math.max(1,cardAspect(this.input)/0.79)); this.camera.lookAt(0,-0.05,0);
     this.key.intensity=32*state.key*settings.light; this.fill.intensity=0.95*state.visibility*settings.light;
@@ -178,7 +179,7 @@ export class Studio {
     this.renderer.render(this.scene,this.workspaceView?this.inspectionCamera:this.camera);
     const ctx=this.ctx,w=this.width,h=this.height;
     ctx.clearRect(0,0,w,h);
-    if(this.workspaceView){ctx.drawImage(this.renderer.domElement,0,0,w,h);return;}
+    if(this.workspaceView || this.transparentOutput){ctx.drawImage(this.renderer.domElement,0,0,w,h);return;}
     const gradient=ctx.createRadialGradient(w*0.5,h*0.42,0,w*0.5,h*0.42,h*0.72);
     gradient.addColorStop(0,palette.center); gradient.addColorStop(1,palette.edge);
     ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);

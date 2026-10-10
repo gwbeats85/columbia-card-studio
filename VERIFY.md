@@ -79,3 +79,23 @@ The fixture is an authentic historical **scan**, not a modern shop photograph. U
 User authorized private GitHub publication for work-computer access. Reviewed all 52 staged paths (~3.9 MB) and scanned tracked text/filenames for credential material: no matches; no private fixture, dependency, build, browser-state, or proof-output paths tracked. Normalized line endings/trailing whitespace in bundled font license text without changing terms; `git diff --cached --check` passed.
 
 A clean staged-file snapshot at `/tmp/columbia-repo-check.PwSHxg` passed fresh `npm ci --no-audit --no-fund` and `npm run preflight` (13 tests, typecheck, production build). Built preview on 127.0.0.1:5201 opened in Chrome with the Ty Cobb demo, Columbia branding, and zero private practice buttons. Local screenshot: `output/playwright/portable-github-checkout.png`. Original user server remains at port 5199. README documents clone/ZIP, Node/npm startup and updates. Existing Three chunk-size warning remains. No new app functionality or public web deployment.
+
+## October 10 — Affinity starter templates and social workspace
+
+- Affinity used through its enabled local MCP server (this installed version answers legacy SSE on IPv4 `127.0.0.1:6767/sse`; configured IPv6 endpoint did not respond). Read SDK preamble and relevant modules. No permission settings were changed.
+- Imported authored SVG into new Affinity documents, verified native ShapeNode/PolyCurveNode and six ArtTextNode layers plus embedded images, exercised text setter, saved two `.af` masters, and exported the background-only PNGs consumed by Posts.
+- Caught and corrected Affinity SVG photo stretching by setting explicit aspect-correct image bounds. Set native masters to 72 dpi and verified PNG exports at 1080×1350. Reopened the canonical Featured Card `.af` through Affinity UI; named groups present and MCP readback confirms 72 dpi. MCP render_spread proofs inspected for both final masters.
+- `npm run preflight`: typecheck, **20 tests**, production build passed. Existing ~840 KB Three.js chunk advisory remains. `git diff --check` passed.
+- `scripts/verify-posts.js` passed in desktop Chrome: real supplied graded-card upload; editable copy; portrait/square/vertical PNG downloads; long unbroken headline and long details layout; local save and portable JSON restoration produced pixel-identical canvases; actual Affinity background PNG import/reset; mobile 390×844 without horizontal overflow; 3D frame PNG, transparent tight card PNG, and live handoff into Posts.
+- Download dimensions verified: 1080×1350, 1080×1080, 1080×1920; card still 1080×1350; transparent card 459×641 with alpha.
+- `scripts/verify-social-video.js` exported all three real MP4 formats. ffprobe: H.264, 30 fps, 240 frames, 8 seconds each, dimensions match selected formats. All decoded fully with ffmpeg; extracted portrait/square/vertical frames inspected. Browser console: zero errors and warnings at completion.
+- Local verification artifacts: `output/playwright/posts-featured.png`, `posts-long-text.png`, `posts-mobile.png`, `posts-3d-handoff.png`, `practice-project.json`, `post-{portrait,square,vertical}.png`, `social-{portrait,square,vertical}.mp4`. Private photographs and generated media remain ignored.
+- Server left running at http://127.0.0.1:5199/ for review. Affinity has canonical `featured-card.af` open.
+
+Limits: manual local save (not autosave); one post at a time, no carousel/ZIP or animation inside Posts; logo remains raster; custom PNG background import does not interpret arbitrary Affinity layouts. Extreme-length copy scales down and should be reviewed for readability. `.af` files require Affinity; Figma SVG round-trip was not tested.
+
+## October 10, 03:22 — Posts UI reference refinement
+- Replaced three-column green shell with neutral canvas/right-inspector layout, slim header, template tray, Project menu, collapsible Content/Card/Background/Format groups, and saved/unsaved status.
+- `npm run preflight`: 20 tests, typecheck and build passed; existing Three chunk advisory only. `git diff --check` clean.
+- Updated and ran `scripts/verify-posts.js`: template/photo/copy editing, three PNG sizes, pixel-identical saved/project-file restoration, custom background import/reset, 390px mobile without horizontal overflow, 3D PNG/cutout handoff all pass. Additional browser checks verified save → edit → revert status and Content collapse/reopen.
+- Visually inspected `output/playwright/posts-clean-desktop.png`, `posts-clean-final.png`, and `posts-mobile.png`. Render model and MP4 path unchanged; video encodes were not repeated for this UI-only change.

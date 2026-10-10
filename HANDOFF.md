@@ -1,4 +1,12 @@
-# Pull Studio handoff — October 9, 2026
+# Columbia Card Studio handoff
+
+## October 10 — GitHub publication checkpoint
+
+User approved committing and pushing the completed Posts workspace, Affinity starters, social exports, and cleaner UI in response to the public-repository confirmation. Publishing target: `gwbeats85/columbia-card-studio`, branch `main`. The entries below are historical; their uncommitted/private status descriptions predate this checkpoint.
+
+Pre-push verification: `npm run preflight` passed (20 tests, typecheck, production build); `git diff --check` passed. Candidate files were scanned for credentials and private fixture paths. Embedded SVG images match the already included Columbia logo and archival Ty Cobb demo by SHA-256. Private photographs, generated exports, browser state, dependencies, and local build outputs remain ignored. README includes setup and local save behavior. No app hosting deployment is part of this checkpoint.
+
+At work: clone or download the repository, install Node 22, then run `npm ci` and `npm run dev`. Open `http://127.0.0.1:5199/`.
 
 ## Latest: private GitHub repository
 
@@ -81,3 +89,17 @@ Changed: `src/App.tsx`, `src/model.ts`, `src/model.test.ts`, `src/studio.ts`, `s
 Commands: `npm run preflight`; Playwright CLI running `scripts/verify-columbia.js` and `scripts/verify-columbia-spin.js`; ffprobe and full FFmpeg decode for both new MP4s. All final checks passed; see VERIFY.md for metadata and screenshots. No new permissions or external upload. Directory remains outside Git; no commit/checkpoint performed. App remains running at http://127.0.0.1:5199/ with Jordan/Spotlight ready in the user tab.
 
 Next review: compare Spotlight / Diagonal / Paper, then provide a matching graded reverse photo to try the complete turn. More accurate clear-holder geometry and editable vector logo layers are separate follow-ups.
+
+## October 10: social starter build
+
+Implemented and verified locally. New Posts workspace opens by default; 3D cards remain a top-level switch. Two editable Affinity masters and SVG alternatives are bundled in `public/templates/`, with actual Affinity-exported background PNGs. Canonical design masters: `/Users/m5/Workspaces/design/PROJECTS/active/columbia-social-templates/`. Featured Card is open in Affinity. Follow `SOCIAL_WORKFLOW.md` for the colleague training path.
+
+Changed: App/main/studio/export integration; new Workspace/Posts components, post model/styles/tests, export dimensions/tests, template assets, browser proof scripts, APP_SPEC/README/plan/workflow/verification/handoff docs. No dependencies added. Used Affinity's existing MCP permissions; no accounts, uploads, permission changes, or social publishing.
+
+Commands: npm run preflight (20 tests + typecheck/build), git diff --check, Playwright verify-posts and verify-social-video, sips dimensions, ffprobe, complete ffmpeg decode. All pass; see VERIFY.md for proof details and limitations.
+
+The Vite process is running on 127.0.0.1:5199. Changes are **uncommitted and unpushed**; prior private GitHub repo does not yet contain this addition. Next: compare the two starter looks and practice changing a background in Affinity; approve a Git checkpoint when ready to move this version to work. Carousel/event families and animated Posts remain follow-ups.
+
+## October 10, 03:22 — Posts UI refinement
+User chose the tash reference layout. Posts now uses a large left canvas, right collapsible inspector, neutral chrome, top save/export and Project menu, and bottom template chooser. Header displays real local save state. Workspace switching is integrated into the Posts header; existing 3D navigation remains available.
+Changed this pass: Posts.tsx/posts.css, Workspace.tsx/workspace.css, verify-posts.js and supporting APP_SPEC/DESIGN/workflow/README/VERIFY/HANDOFF docs. Verified via npm run preflight (20 tests + build/typecheck), browser flow and desktop/mobile screenshots. No new dependencies, permission changes, or external writes. Server remains running at localhost:5199. Existing and new changes remain uncommitted/unpushed. Next: user review of the cleaner layout, then a requested Git checkpoint.
